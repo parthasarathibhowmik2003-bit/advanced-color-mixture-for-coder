@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ColorMix Pro – Smart Color Mixing Tool</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        accent: { DEFAULT: '#E8A838', light: '#F5D280', dark: '#B87D1A', dim: 'rgba(232,168,56,0.15)' },
+        surface: { DEFAULT: '#13131A', 1: '#1A1A24', 2: '#22222E', 3: '#2C2C3A', border: '#2E2E3E' },
+        lt: { DEFAULT: '#FAF8F4', 1: '#FFFFFF', 2: '#F0EDE6', border: '#E2DED5', muted: '#8A8578' }
+      },
+      fontFamily: { display: ['Space Grotesk','sans-serif'], body: ['DM Sans','sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+  :root { --accent: #E8A838; --accent-light: #F5D280; --accent-dark: #B87D1A; }
+  * { margin:0; padding:0; box-sizing:border-box; scrollbar-width:thin; scrollbar-color: #2E2E3E transparent; }
+  body { font-family:'DM Sans',sans-serif; overflow-x:hidden; transition: background .4s, color .4s; }
+  .dark body { background:#0B0B0F; color:#F0EDE6; }
+  body { background:#FAF8F4; color:#1A1A1A; }
+
+  .page { display:none; opacity:0; transform:translateY(12px); transition: opacity .35s ease, transform .35s ease; }
+  .page.active { display:block; opacity:1; transform:translateY(0); }
+
+  .glass { background: rgba(26,26,36,0.6); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06); }
+  .light .glass, html:not(.dark) .glass { background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.06); }
+
+  input[type="range"] { -webkit-appearance:none; appearance:none; width:100%; height:10px; border-radius:5px; outline:none; cursor:pointer; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid rgba(0,0,0,0.2); cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); transition: transform .15s; }
+  input[type="range"]::-webkit-slider-thumb:hover { transform:scale(1.15); }
+  input[type="range"]::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid rgba(0,0,0,0.2); cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); }
+
+  .blob { position:absolute; border-radius:50%; filter:blur(80px); opacity:0.5; animation: blobMove 12s ease-in-out infinite alternate; }
+  .blob-1 { width:400px; height:400px; background:#E8A838; top:-100px; left:-100px; }
+  .blob-2 { width:350px; height:350px; background:#E85538; bottom:-80px; right:-80px; animation-delay:-4s; animation-duration:15s; }
+  .blob-3 { width:300px; height:300px; background:#38E8A8; top:50%; left:60%; animation-delay:-8s; animation-duration:18s; }
+  @keyframes blobMove { 0%{transform:translate(0,0) scale(1)} 33%{transform:translate(40px,-30px) scale(1.1)} 66%{transform:translate(-20px,40px) scale(0.9)} 100%{transform:translate(30px,20px) scale(1.05)} }
+
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  .float { animation: float 4s ease-in-out infinite; }
+  @keyframes pulseGlow { 0%,100%{box-shadow:0 0 20px rgba(232,168,56,0.2)} 50%{box-shadow:0 0 40px rgba(232,168,56,0.4)} }
+
+  .toast { animation: toastIn .3s ease forwards; }
+  .toast.out { animation: toastOut .3s ease forwards; }
+  @keyframes toastIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+  @keyframes toastOut { from{transform:translateX(0);opacity:1} to{transform:translateX(100%);opacity:0} }
+
+  .swatch { transition: transform .2s, box-shadow .2s; }
+  .swatch:hover { transform:scale(1.08); box-shadow:0 8px 25px rgba(0,0,0,0.3); }
+
+  .nav-link { position:relative; }
+  .nav-link::after { content:''; position:absolute; bottom:-2px; left:0; width:0; height:2px; background:var(--accent); transition:width .25s; border-radius:1px; }
+  .nav-link:hover::after, .nav-link.active::after { width:100%; }
+
+  .mobile-overlay { transition: opacity .3s; }
+  .mobile-panel { transition: transform .3s ease; }
+
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:#2E2E3E; border-radius:3px; }
+  html:not(.dark) ::-webkit-scrollbar-thumb { background:#D0CCC4; }
+
+  .color-val { transition: background .15s; }
+  .color-val:hover { background: rgba(232,168,56,0.1); }
+
+  .format-tab { transition: all .2s; }
+  .format-tab.active { background: var(--accent); color: #fff; }
+
+  .checker-bg {
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+  .dark .checker-bg {
+    background-image: linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%);
+  }
+
+  .num-input { -moz-appearance: textfield; }
+  .num-input::-webkit-inner-spin-button, .num-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; }
+  }
+  *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  .dark .text-adaptive { color:#F0EDE6; }
+  html:not(.dark) .text-adaptive { color:#1A1A1A; }
+  .dark .text-muted-adaptive { color:#8A8698; }
+  html:not(.dark) .text-muted-adaptive { color:#6B6560; }
+  .dark .bg-page { background:#0B0B0F; }
+  html:not(.dark) .bg-page { background:#FAF8F4; }
+  .dark .bg-card { background:#16161D; border:1px solid #2E2E3E; }
+  html:not(.dark) .bg-card { background:#FFFFFF; border:1px solid #E2DED5; }
+  .dark .bg-input { background:#1A1A24; border:1px solid #2E2E3E; color:#F0EDE6; }
+  html:not(.dark) .bg-input { background:#F0EDE6; border:1px solid #D8D4CB; color:#1A1A1A; }
+  .dark .bg-input-alt { background:#1E1E28; border:1px solid #2E2E3E; color:#F0EDE6; }
+  html:not(.dark) .bg-input-alt { background:#E8E4DB; border:1px solid #D0CCC4; color:#1A1A1A; }
+</style>
+</head>
+<body class="bg-page font-body min-h-screen">
+
+<!-- NAVIGATION -->
+<nav id="navbar" class="fixed top-0 left-0 right-0 z-50 glass" style="border-bottom:1px solid rgba(255,255,255,0.05)">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+    <a href="#" onclick="navigateTo('home')" class="flex items-center gap-2.5 group">
+      <div class="w-9 h-9 rounded-xl bg-accent flex items-center justify-center shadow-lg" style="animation:pulseGlow 3s ease-in-out infinite">
+        <i class="fa-solid fa-droplet text-white text-sm"></i>
+      </div>
+      <span class="font-display font-bold text-lg text-adaptive group-hover:text-accent transition-colors">ColorMix <span class="text-accent">Pro</span></span>
+    </a>
+    <div class="hidden lg:flex items-center gap-1">
+      <a href="#" onclick="navigateTo('home')" class="nav-link px-3 py-2 text-sm font-medium text-muted-adaptive hover:text-accent transition-colors" data-nav="home">Home</a>
+      <a href="#" onclick="navigateTo('mixer')" class="nav-link px-3 py-2 text-sm font-medium text-muted-adaptive hover:text-accent transition-colors" data-nav="mixer">Mixer</a>
+      <a href="#" onclick="navigateTo('palettes')" class="nav-link px-3 py-2 text-sm font-medium text-muted-adaptive hover:text-accent transition-colors" data-nav="palettes">Palettes</a>
+      <a href="#" onclick="navigateTo('gradient')" class="nav-link px-3 py-2 text-sm font-medium text-muted-adaptive hover:text-accent transition-colors" data-nav="gradient">Gradient</a>
+      <a href="#" onclick="navigateTo('image')" class="nav-link px-3 py-2 text-sm font-medium text-muted-adaptive hover:text-accent transition-colors" data-nav="image">Image Picker</a>
+      <a href="#" onclick="navigateTo('learn')" class="nav-link px-3 py-2 text-sm font-medium text-muted-adaptive hover:text-accent transition-colors" data-nav="learn">Learn</a>
+      <a href="#" onclick="navigateTo('about')" class="nav-link px-3 py-2 text-sm font-medium text-muted-adaptive hover:text-accent transition-colors" data-nav="about">About</a>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="toggleHistory()" class="w-9 h-9 rounded-xl flex items-center justify-center text-muted-adaptive hover:text-accent hover:bg-accent-dim transition-all" title="Color History" aria-label="Color History">
+        <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+      </button>
+      <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center text-muted-adaptive hover:text-accent hover:bg-accent-dim transition-all" title="Toggle Theme" aria-label="Toggle Theme" id="theme-btn">
+        <i class="fa-solid fa-sun text-sm"></i>
+      </button>
+      <button onclick="toggleMobileMenu()" class="lg:hidden w-9 h-9 rounded-xl flex items-center justify-center text-muted-adaptive hover:text-accent hover:bg-accent-dim transition-all" aria-label="Menu">
+        <i class="fa-solid fa-bars text-sm"></i>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<div id="mobile-menu" class="fixed inset-0 z-[60] pointer-events-none">
+  <div class="mobile-overlay absolute inset-0 bg-black/60 opacity-0" onclick="toggleMobileMenu()"></div>
+  <div class="mobile-panel absolute top-0 right-0 w-72 h-full bg-page shadow-2xl transform translate-x-full flex flex-col p-6 pt-20 gap-1">
+    <button onclick="toggleMobileMenu()" class="absolute top-5 right-5 w-9 h-9 rounded-xl flex items-center justify-center text-muted-adaptive hover:text-accent" aria-label="Close Menu"><i class="fa-solid fa-xmark"></i></button>
+    <a href="#" onclick="navigateTo('home');toggleMobileMenu()" class="px-4 py-3 rounded-xl text-adaptive hover:bg-accent-dim hover:text-accent transition-all font-medium">Home</a>
+    <a href="#" onclick="navigateTo('mixer');toggleMobileMenu()" class="px-4 py-3 rounded-xl text-adaptive hover:bg-accent-dim hover:text-accent transition-all font-medium">Color Mixer</a>
+    <a href="#" onclick="navigateTo('palettes');toggleMobileMenu()" class="px-4 py-3 rounded-xl text-adaptive hover:bg-accent-dim hover:text-accent transition-all font-medium">Palettes</a>
+    <a href="#" onclick="navigateTo('gradient');toggleMobileMenu()" class="px-4 py-3 rounded-xl text-adaptive hover:bg-accent-dim hover:text-accent transition-all font-medium">Gradient Tool</a>
+    <a href="#" onclick="navigateTo('image');toggleMobileMenu()" class="px-4 py-3 rounded-xl text-adaptive hover:bg-accent-dim hover:text-accent transition-all font-medium">Image Picker</a>
+    <a href="#" onclick="navigateTo('learn');toggleMobileMenu()" class="px-4 py-3 rounded-xl text-adaptive hover:bg-accent-dim hover:text-accent transition-all font-medium">Learn</a>
+    <a href="#" onclick="navigateTo('about');toggleMobileMenu()" class="px-4 py-3 rounded-xl text-adaptive hover:bg-accent-dim hover:text-accent transition-all font-medium">About</a>
+  </div>
+</div>
+
+<!-- COLOR HISTORY PANEL -->
+<div id="history-panel" class="fixed top-16 right-4 z-[55] w-72 rounded-2xl bg-card shadow-2xl border border-surface-border p-4 transform translate-x-[120%] transition-transform duration-300" style="max-height:70vh;overflow-y:auto">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="font-display font-semibold text-sm text-adaptive">Color History</h3>
+    <button onclick="clearHistory()" class="text-xs text-muted-adaptive hover:text-red-400 transition-colors">Clear All</button>
+  </div>
+  <div id="history-list" class="flex flex-wrap gap-2">
+    <p class="text-xs text-muted-adaptive">No colors yet. Start mixing!</p>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container" class="fixed bottom-6 right-6 z-[70] flex flex-col gap-2"></div>
+
+<!-- MAIN CONTENT -->
+<main class="pt-16">
+
+<!-- ===================== HOME PAGE ===================== -->
+<section id="page-home" class="page active">
+  <div class="relative min-h-[92vh] flex items-center overflow-hidden">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 grid lg:grid-cols-2 gap-16 items-center">
+      <div>
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent-dim border border-accent/20 mb-6">
+          <span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+          <span class="text-accent text-sm font-medium">Professional Color Tool</span>
+        </div>
+        <h1 class="font-display text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.05] text-adaptive mb-6">
+          Mix. Match.<br><span class="text-accent">Master</span> Color.
+        </h1>
+        <p class="text-lg text-muted-adaptive leading-relaxed mb-8 max-w-lg">
+          The smartest color mixing tool for designers. Generate palettes, extract colors from images, build gradients, and understand color theory — all in one place.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <button onclick="navigateTo('mixer')" class="px-7 py-3.5 bg-accent hover:bg-accent-dark text-white font-display font-semibold rounded-xl shadow-lg shadow-accent/25 hover:shadow-accent/40 transition-all hover:-translate-y-0.5">
+            Start Mixing <i class="fa-solid fa-arrow-right ml-2"></i>
+          </button>
+          <button onclick="navigateTo('learn')" class="px-7 py-3.5 bg-card border border-surface-border text-adaptive font-display font-semibold rounded-xl hover:border-accent/40 transition-all hover:-translate-y-0.5">
+            Learn Color Theory
+          </button>
+        </div>
+      </div>
+      <div class="hidden lg:flex justify-center">
+        <div class="relative float">
+          <div class="w-80 h-80 rounded-3xl shadow-2xl overflow-hidden" style="background: conic-gradient(from 0deg, #E8A838, #E85538, #E838A8, #8838E8, #3858E8, #38E8A8, #A8E838, #E8A838)"></div>
+          <div class="absolute inset-8 rounded-2xl bg-page/90 backdrop-blur-sm flex items-center justify-center flex-col gap-2">
+            <div class="w-20 h-20 rounded-2xl shadow-lg" id="hero-preview" style="background:#E8A838"></div>
+            <span class="font-display font-semibold text-adaptive text-sm" id="hero-hex">#E8A838</span>
+          </div>
+          <div class="absolute -bottom-4 -left-4 bg-card rounded-xl px-4 py-2 shadow-lg border border-surface-border float" style="animation-delay:-2s">
+            <span class="text-xs text-muted-adaptive">Contrast Ratio</span>
+            <p class="font-display font-bold text-accent">4.8:1 AA</p>
+          </div>
+          <div class="absolute -top-4 -right-4 bg-card rounded-xl px-4 py-2 shadow-lg border border-surface-border float" style="animation-delay:-3s">
+            <span class="text-xs text-muted-adaptive">Formats</span>
+            <p class="font-display font-bold text-accent text-xs">HEX RGB RGBA HSL</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
+    <div class="text-center mb-14">
+      <h2 class="font-display text-3xl sm:text-4xl font-bold text-adaptive mb-4">Everything You Need</h2>
+      <p class="text-muted-adaptive max-w-xl mx-auto">Professional-grade color tools, designed for speed and precision.</p>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div onclick="navigateTo('mixer')" class="bg-card rounded-2xl p-6 cursor-pointer group hover:border-accent/30 transition-all hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-accent-dim flex items-center justify-center mb-4 group-hover:bg-accent/25 transition-colors"><i class="fa-solid fa-sliders text-accent text-lg"></i></div>
+        <h3 class="font-display font-semibold text-adaptive mb-2">Smart Color Mixer</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">RGB & HSL sliders with real-time preview. HEX, RGB, RGBA, RGB%, HSL, CMYK conversion.</p>
+      </div>
+      <div onclick="navigateTo('palettes')" class="bg-card rounded-2xl p-6 cursor-pointer group hover:border-accent/30 transition-all hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-accent-dim flex items-center justify-center mb-4 group-hover:bg-accent/25 transition-colors"><i class="fa-solid fa-palette text-accent text-lg"></i></div>
+        <h3 class="font-display font-semibold text-adaptive mb-2">Palette Generator</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">Generate stunning palettes instantly. Lock colors, export as PNG or JSON.</p>
+      </div>
+      <div onclick="navigateTo('gradient')" class="bg-card rounded-2xl p-6 cursor-pointer group hover:border-accent/30 transition-all hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-accent-dim flex items-center justify-center mb-4 group-hover:bg-accent/25 transition-colors"><i class="fa-solid fa-wand-magic-sparkles text-accent text-lg"></i></div>
+        <h3 class="font-display font-semibold text-adaptive mb-2">Gradient Builder</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">Create linear & radial gradients with multiple stops. Copy CSS instantly.</p>
+      </div>
+      <div onclick="navigateTo('image')" class="bg-card rounded-2xl p-6 cursor-pointer group hover:border-accent/30 transition-all hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-accent-dim flex items-center justify-center mb-4 group-hover:bg-accent/25 transition-colors"><i class="fa-solid fa-image text-accent text-lg"></i></div>
+        <h3 class="font-display font-semibold text-adaptive mb-2">Image Color Picker</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">Upload any image and extract its dominant colors automatically.</p>
+      </div>
+      <div onclick="navigateTo('mixer')" class="bg-card rounded-2xl p-6 cursor-pointer group hover:border-accent/30 transition-all hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-accent-dim flex items-center justify-center mb-4 group-hover:bg-accent/25 transition-colors"><i class="fa-solid fa-eye text-accent text-lg"></i></div>
+        <h3 class="font-display font-semibold text-adaptive mb-2">Contrast Checker</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">WCAG accessibility checks. Ensure your colors meet AA and AAA standards.</p>
+      </div>
+      <div onclick="navigateTo('learn')" class="bg-card rounded-2xl p-6 cursor-pointer group hover:border-accent/30 transition-all hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-accent-dim flex items-center justify-center mb-4 group-hover:bg-accent/25 transition-colors"><i class="fa-solid fa-graduation-cap text-accent text-lg"></i></div>
+        <h3 class="font-display font-semibold text-adaptive mb-2">Color Theory Guide</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">Learn RGB, RGBA, HSL, CMYK, color harmonies, and how to use them effectively.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== MIXER PAGE ===================== -->
+<section id="page-mixer" class="page">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-8">
+      <h1 class="font-display text-3xl sm:text-4xl font-bold text-adaptive mb-2">Color Mixer</h1>
+      <p class="text-muted-adaptive">Adjust sliders to mix your perfect color. All formats update in real-time.</p>
+    </div>
+    <div class="grid lg:grid-cols-3 gap-6">
+      <!-- Preview + Values -->
+      <div class="lg:col-span-1">
+        <div class="bg-card rounded-2xl p-6 sticky top-24">
+          <!-- Color preview with checkerboard for alpha -->
+          <div class="relative w-full aspect-square rounded-2xl shadow-inner mb-5 overflow-hidden">
+            <div class="absolute inset-0 checker-bg"></div>
+            <div class="absolute inset-0 transition-colors duration-150" id="mixer-preview" style="background:rgba(232,168,56,1)"></div>
+          </div>
+          <div class="space-y-1.5">
+            <div class="color-val flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer" onclick="copyValue('mixer-hex')">
+              <span class="text-[10px] font-semibold text-muted-adaptive uppercase tracking-wider">HEX</span>
+              <div class="flex items-center gap-2"><span class="font-mono text-sm text-adaptive" id="mixer-hex">#E8A838</span><i class="fa-regular fa-copy text-[10px] text-muted-adaptive"></i></div>
+            </div>
+            <div class="color-val flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer" onclick="copyValue('mixer-rgb-fn')">
+              <span class="text-[10px] font-semibold text-muted-adaptive uppercase tracking-wider">RGB</span>
+              <div class="flex items-center gap-2"><span class="font-mono text-xs text-adaptive" id="mixer-rgb-fn">rgb(232, 168, 56)</span><i class="fa-regular fa-copy text-[10px] text-muted-adaptive"></i></div>
+            </div>
+            <div class="color-val flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer" onclick="copyValue('mixer-rgba-fn')">
+              <span class="text-[10px] font-semibold text-muted-adaptive uppercase tracking-wider">RGBA</span>
+              <div class="flex items-center gap-2"><span class="font-mono text-xs text-adaptive" id="mixer-rgba-fn">rgba(232, 168, 56, 1)</span><i class="fa-regular fa-copy text-[10px] text-muted-adaptive"></i></div>
+            </div>
+            <div class="color-val flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer" onclick="copyValue('mixer-rgb-pct')">
+              <span class="text-[10px] font-semibold text-muted-adaptive uppercase tracking-wider">RGB%</span>
+              <div class="flex items-center gap-2"><span class="font-mono text-xs text-adaptive" id="mixer-rgb-pct">rgb(91%, 66%, 22%)</span><i class="fa-regular fa-copy text-[10px] text-muted-adaptive"></i></div>
+            </div>
+            <div class="color-val flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer" onclick="copyValue('mixer-rgba-pct')">
+              <span class="text-[10px] font-semibold text-muted-adaptive uppercase tracking-wider">RGBA%</span>
+              <div class="flex items-center gap-2"><span class="font-mono text-xs text-adaptive" id="mixer-rgba-pct">rgba(91%, 66%, 22%, 100%)</span><i class="fa-regular fa-copy text-[10px] text-muted-adaptive"></i></div>
+            </div>
+            <div class="color-val flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer" onclick="copyValue('mixer-hsl')">
+              <span class="text-[10px] font-semibold text-muted-adaptive uppercase tracking-wider">HSL</span>
+              <div class="flex items-center gap-2"><span class="font-mono text-xs text-adaptive" id="mixer-hsl">hsl(38, 81%, 56%)</span><i class="fa-regular fa-copy text-[10px] text-muted-adaptive"></i></div>
+            </div>
+            <div class="color-val flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer" onclick="copyValue('mixer-cmyk')">
+              <span class="text-[10px] font-semibold text-muted-adaptive uppercase tracking-wider">CMYK</span>
+              <div class="flex items-center gap-2"><span class="font-mono text-xs text-adaptive" id="mixer-cmyk">cmyk(0%, 28%, 76%, 9%)</span><i class="fa-regular fa-copy text-[10px] text-muted-adaptive"></i></div>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-4">
+            <button onclick="saveToFavorites(currentHex)" class="flex-1 py-2.5 rounded-xl bg-accent-dim text-accent text-sm font-medium hover:bg-accent/25 transition-colors"><i class="fa-solid fa-heart mr-1.5"></i>Save</button>
+            <button onclick="addToHistory(currentHex)" class="flex-1 py-2.5 rounded-xl bg-input text-adaptive text-sm font-medium hover:bg-surface-2 transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>History</button>
+          </div>
+          <!-- Contrast Checker -->
+          <div class="mt-5 pt-5 border-t border-surface-border">
+            <h4 class="font-display font-semibold text-sm text-adaptive mb-3"><i class="fa-solid fa-eye mr-1.5 text-accent"></i>Contrast Checker</h4>
+            <div class="flex gap-2 items-center mb-3">
+              <div class="flex-1">
+                <label class="text-xs text-muted-adaptive mb-1 block">Foreground</label>
+                <input type="color" id="contrast-fg" value="#000000" onchange="updateContrast()" class="w-full h-9 rounded-lg cursor-pointer border-0 bg-transparent">
+              </div>
+              <div class="flex-1">
+                <label class="text-xs text-muted-adaptive mb-1 block">Background</label>
+                <input type="color" id="contrast-bg" value="#E8A838" onchange="updateContrast()" class="w-full h-9 rounded-lg cursor-pointer border-0 bg-transparent">
+              </div>
+            </div>
+            <div class="rounded-xl p-3 text-center" id="contrast-preview-box" style="background:#E8A838">
+              <span id="contrast-preview-text" class="font-semibold text-sm" style="color:#000000">Sample Text Aa</span>
+            </div>
+            <div class="flex items-center justify-between mt-2">
+              <span class="font-display font-bold text-adaptive" id="contrast-ratio">3.2:1</span>
+              <div class="flex gap-1.5" id="contrast-badges"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Sliders + Direct Input -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- RGB Sliders -->
+        <div class="bg-card rounded-2xl p-6">
+          <h3 class="font-display font-semibold text-adaptive mb-5 flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500"></span>RGB Channels</h3>
+          <div class="space-y-5">
+            <div>
+              <div class="flex justify-between mb-2"><label class="text-sm font-medium text-adaptive">Red</label><span class="font-mono text-sm text-accent" id="r-val">232</span></div>
+              <input type="range" min="0" max="255" value="232" id="slider-r" oninput="updateMixerFromRGB()" style="background:linear-gradient(to right,#000,#ff0000)">
+            </div>
+            <div>
+              <div class="flex justify-between mb-2"><label class="text-sm font-medium text-adaptive">Green</label><span class="font-mono text-sm text-accent" id="g-val">168</span></div>
+              <input type="range" min="0" max="255" value="168" id="slider-g" oninput="updateMixerFromRGB()" style="background:linear-gradient(to right,#000,#00ff00)">
+            </div>
+            <div>
+              <div class="flex justify-between mb-2"><label class="text-sm font-medium text-adaptive">Blue</label><span class="font-mono text-sm text-accent" id="b-val">56</span></div>
+              <input type="range" min="0" max="255" value="56" id="slider-b" oninput="updateMixerFromRGB()" style="background:linear-gradient(to right,#000,#0000ff)">
+            </div>
+          </div>
+        </div>
+        <!-- HSL Sliders -->
+        <div class="bg-card rounded-2xl p-6">
+          <h3 class="font-display font-semibold text-adaptive mb-5 flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-accent"></span>HSL Channels</h3>
+          <div class="space-y-5">
+            <div>
+              <div class="flex justify-between mb-2"><label class="text-sm font-medium text-adaptive">Hue</label><span class="font-mono text-sm text-accent" id="h-val">38°</span></div>
+              <input type="range" min="0" max="360" value="38" id="slider-h" oninput="updateMixerFromHSL()" style="background:linear-gradient(to right,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)">
+            </div>
+            <div>
+              <div class="flex justify-between mb-2"><label class="text-sm font-medium text-adaptive">Saturation</label><span class="font-mono text-sm text-accent" id="s-val">81%</span></div>
+              <input type="range" min="0" max="100" value="81" id="slider-s" oninput="updateMixerFromHSL()" style="background:linear-gradient(to right,#888,#E8A838)">
+            </div>
+            <div>
+              <div class="flex justify-between mb-2"><label class="text-sm font-medium text-adaptive">Lightness</label><span class="font-mono text-sm text-accent" id="l-val">56%</span></div>
+              <input type="range" min="0" max="100" value="56" id="slider-l" oninput="updateMixerFromHSL()" style="background:linear-gradient(to right,#000,#E8A838,#fff)">
+            </div>
+          </div>
+        </div>
+        <!-- Alpha Slider -->
+        <div class="bg-card rounded-2xl p-6">
+          <h3 class="font-display font-semibold text-adaptive mb-5 flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-white border border-gray-400"></span>Alpha / Opacity</h3>
+          <div>
+            <div class="flex justify-between mb-2"><label class="text-sm font-medium text-adaptive">Alpha</label><span class="font-mono text-sm text-accent" id="a-val">1.00</span></div>
+            <div class="relative rounded-xl overflow-hidden" style="height:10px">
+              <div class="absolute inset-0 checker-bg"></div>
+              <input type="range" min="0" max="100" value="100" id="slider-a" oninput="updateAlpha()" style="position:relative;z-index:1;height:10px;background:linear-gradient(to right,rgba(232,168,56,0),rgba(232,168,56,1))">
+            </div>
+          </div>
+        </div>
+        <!-- Direct Input Section -->
+        <div class="bg-card rounded-2xl p-6">
+          <h3 class="font-display font-semibold text-adaptive mb-4 flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)"></span>Direct Input</h3>
+          <!-- Format Tabs -->
+          <div class="flex flex-wrap gap-1.5 mb-5">
+            <button onclick="switchDirectTab('hex')" class="format-tab active px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-input text-adaptive" data-tab="hex">HEX</button>
+            <button onclick="switchDirectTab('rgb')" class="format-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-input text-adaptive" data-tab="rgb">RGB</button>
+            <button onclick="switchDirectTab('rgba')" class="format-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-input text-adaptive" data-tab="rgba">RGBA</button>
+            <button onclick="switchDirectTab('rgbpct')" class="format-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-input text-adaptive" data-tab="rgbpct">RGB%</button>
+            <button onclick="switchDirectTab('hsl')" class="format-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-input text-adaptive" data-tab="hsl">HSL</button>
+            <div class="flex items-center ml-auto">
+              <input type="color" id="native-picker" value="#E8A838" onchange="updateMixerFromPicker()" class="w-9 h-9 rounded-lg cursor-pointer border-0 bg-transparent" title="Native Color Picker">
+            </div>
+          </div>
+          <!-- HEX Input -->
+          <div id="direct-hex" class="direct-panel">
+            <div class="flex gap-3">
+              <div class="flex-1">
+                <label class="text-xs text-muted-adaptive mb-1.5 block">HEX Value</label>
+                <div class="flex gap-2">
+                  <input type="text" id="input-hex" value="#E8A838" maxlength="7" class="flex-1 px-4 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none transition-all" oninput="applyDirectHex()">
+                  <button onclick="applyDirectHex();addToHistory(currentHex)" class="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors">Apply</button>
+                </div>
+              </div>
+            </div>
+            <p class="text-[11px] text-muted-adaptive mt-2">Format: #RRGGBB or RRGGBB. Example: #E8A838 or E8A838</p>
+          </div>
+          <!-- RGB Input -->
+          <div id="direct-rgb" class="direct-panel hidden">
+            <label class="text-xs text-muted-adaptive mb-1.5 block">RGB — Red, Green, Blue (0–255)</label>
+            <div class="flex gap-2 items-end">
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">R</span>
+                <input type="number" min="0" max="255" value="232" id="input-rgb-r" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">G</span>
+                <input type="number" min="0" max="255" value="168" id="input-rgb-g" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">B</span>
+                <input type="number" min="0" max="255" value="56" id="input-rgb-b" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <button onclick="applyDirectRGB()" class="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors flex-shrink-0">Apply</button>
+            </div>
+            <p class="text-[11px] text-muted-adaptive mt-2">Output: <code class="text-accent" id="direct-rgb-preview">rgb(232, 168, 56)</code></p>
+          </div>
+          <!-- RGBA Input -->
+          <div id="direct-rgba" class="direct-panel hidden">
+            <label class="text-xs text-muted-adaptive mb-1.5 block">RGBA — Red, Green, Blue, Alpha (0–255, 0–1)</label>
+            <div class="flex gap-2 items-end flex-wrap">
+              <div class="flex-1 min-w-[60px]">
+                <span class="text-[10px] text-muted-adaptive block mb-1">R</span>
+                <input type="number" min="0" max="255" value="232" id="input-rgba-r" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1 min-w-[60px]">
+                <span class="text-[10px] text-muted-adaptive block mb-1">G</span>
+                <input type="number" min="0" max="255" value="168" id="input-rgba-g" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1 min-w-[60px]">
+                <span class="text-[10px] text-muted-adaptive block mb-1">B</span>
+                <input type="number" min="0" max="255" value="56" id="input-rgba-b" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1 min-w-[60px]">
+                <span class="text-[10px] text-muted-adaptive block mb-1">A</span>
+                <input type="number" min="0" max="1" step="0.01" value="1" id="input-rgba-a" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <button onclick="applyDirectRGBA()" class="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors flex-shrink-0">Apply</button>
+            </div>
+            <p class="text-[11px] text-muted-adaptive mt-2">Output: <code class="text-accent" id="direct-rgba-preview">rgba(232, 168, 56, 1)</code></p>
+          </div>
+          <!-- RGB% Input -->
+          <div id="direct-rgbpct" class="direct-panel hidden">
+            <label class="text-xs text-muted-adaptive mb-1.5 block">RGB% — Red, Green, Blue as percentages (0%–100%)</label>
+            <div class="flex gap-2 items-end">
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">R%</span>
+                <input type="number" min="0" max="100" step="0.1" value="91" id="input-pct-r" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">G%</span>
+                <input type="number" min="0" max="100" step="0.1" value="65.9" id="input-pct-g" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">B%</span>
+                <input type="number" min="0" max="100" step="0.1" value="22" id="input-pct-b" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <button onclick="applyDirectRGBPct()" class="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors flex-shrink-0">Apply</button>
+            </div>
+            <p class="text-[11px] text-muted-adaptive mt-2">Output: <code class="text-accent" id="direct-pct-preview">rgb(91%, 65.9%, 22%)</code></p>
+          </div>
+          <!-- HSL Input -->
+          <div id="direct-hsl" class="direct-panel hidden">
+            <label class="text-xs text-muted-adaptive mb-1.5 block">HSL — Hue (0–360), Saturation (0–100%), Lightness (0–100%)</label>
+            <div class="flex gap-2 items-end">
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">H°</span>
+                <input type="number" min="0" max="360" value="38" id="input-hsl-h" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">S%</span>
+                <input type="number" min="0" max="100" id="input-hsl-s" value="81" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <div class="flex-1">
+                <span class="text-[10px] text-muted-adaptive block mb-1">L%</span>
+                <input type="number" min="0" max="100" id="input-hsl-l" value="56" class="w-full px-3 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none num-input">
+              </div>
+              <button onclick="applyDirectHSL()" class="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors flex-shrink-0">Apply</button>
+            </div>
+            <p class="text-[11px] text-muted-adaptive mt-2">Output: <code class="text-accent" id="direct-hsl-preview">hsl(38, 81%, 56%)</code></p>
+          </div>
+          <!-- Raw string input -->
+          <div class="mt-5 pt-5 border-t border-surface-border">
+            <label class="text-xs text-muted-adaptive mb-1.5 block">Paste any CSS color string</label>
+            <div class="flex gap-2">
+              <input type="text" id="input-raw" placeholder='e.g. rgb(232,168,56) or hsl(38,81%,56%) or #E8A838' class="flex-1 px-4 py-2.5 rounded-xl bg-input font-mono text-sm text-adaptive focus:ring-2 focus:ring-accent/40 outline-none transition-all" onkeydown="if(event.key==='Enter')applyDirectRaw()">
+              <button onclick="applyDirectRaw()" class="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors flex-shrink-0">Parse</button>
+            </div>
+            <p class="text-[11px] text-muted-adaptive mt-2">Accepts: HEX, rgb(), rgba(), hsl(), hsla(), named colors (e.g. "coral", "steelblue")</p>
+          </div>
+        </div>
+        <!-- AI Suggestions -->
+        <div class="bg-card rounded-2xl p-6">
+          <h3 class="font-display font-semibold text-adaptive mb-4 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-accent"></i>Color Harmonies</h3>
+          <div class="space-y-4" id="harmonies-container">
+            <div><p class="text-xs text-muted-adaptive mb-2 font-medium uppercase tracking-wider">Complementary</p><div class="flex gap-2" id="harm-complementary"></div></div>
+            <div><p class="text-xs text-muted-adaptive mb-2 font-medium uppercase tracking-wider">Analogous</p><div class="flex gap-2" id="harm-analogous"></div></div>
+            <div><p class="text-xs text-muted-adaptive mb-2 font-medium uppercase tracking-wider">Triadic</p><div class="flex gap-2" id="harm-triadic"></div></div>
+            <div><p class="text-xs text-muted-adaptive mb-2 font-medium uppercase tracking-wider">Split-Complementary</p><div class="flex gap-2" id="harm-split"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PALETTES PAGE ===================== -->
+<section id="page-palettes" class="page">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+      <div>
+        <h1 class="font-display text-3xl sm:text-4xl font-bold text-adaptive mb-2">Palette Generator</h1>
+        <p class="text-muted-adaptive">Generate random palettes. Click a color to lock it, then regenerate the rest.</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="generatePalette()" class="px-5 py-2.5 bg-accent hover:bg-accent-dark text-white font-display font-semibold rounded-xl shadow-lg shadow-accent/20 transition-all hover:-translate-y-0.5"><i class="fa-solid fa-shuffle mr-2"></i>Generate</button>
+        <button onclick="exportPalettePNG()" class="px-5 py-2.5 bg-card border border-surface-border text-adaptive font-medium rounded-xl hover:border-accent/40 transition-all"><i class="fa-solid fa-image mr-2"></i>PNG</button>
+        <button onclick="exportPaletteJSON()" class="px-5 py-2.5 bg-card border border-surface-border text-adaptive font-medium rounded-xl hover:border-accent/40 transition-all"><i class="fa-solid fa-code mr-2"></i>JSON</button>
+      </div>
+    </div>
+    <div class="bg-card rounded-2xl p-4 sm:p-6 mb-6">
+      <div class="flex rounded-xl overflow-hidden shadow-lg" style="height:220px" id="main-palette"></div>
+    </div>
+    <div class="mb-6">
+      <h3 class="font-display font-semibold text-adaptive mb-4 flex items-center gap-2"><i class="fa-solid fa-heart text-red-400"></i>Saved Colors</h3>
+      <div id="favorites-grid" class="flex flex-wrap gap-2 min-h-[48px]">
+        <p class="text-sm text-muted-adaptive">No saved colors yet. Mix a color and click Save!</p>
+      </div>
+    </div>
+    <div>
+      <h3 class="font-display font-semibold text-adaptive mb-4 flex items-center gap-2"><i class="fa-solid fa-bookmark text-accent"></i>Saved Palettes</h3>
+      <div id="saved-palettes" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <p class="text-sm text-muted-adaptive">Generate a palette and save it to see it here.</p>
+      </div>
+    </div>
+    <div class="mt-4 flex justify-end">
+      <button onclick="saveCurrentPalette()" class="px-5 py-2.5 bg-card border border-surface-border text-adaptive font-medium rounded-xl hover:border-accent/40 transition-all"><i class="fa-solid fa-plus mr-2"></i>Save Current Palette</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== GRADIENT PAGE ===================== -->
+<section id="page-gradient" class="page">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-8">
+      <h1 class="font-display text-3xl sm:text-4xl font-bold text-adaptive mb-2">Gradient Builder</h1>
+      <p class="text-muted-adaptive">Create beautiful gradients with multiple color stops.</p>
+    </div>
+    <div class="grid lg:grid-cols-5 gap-6">
+      <div class="lg:col-span-3">
+        <div class="bg-card rounded-2xl p-4 mb-4">
+          <div class="w-full rounded-xl shadow-inner" id="gradient-preview" style="height:320px;background:linear-gradient(90deg,#E8A838,#E85538)"></div>
+        </div>
+        <div class="bg-card rounded-2xl p-5">
+          <h3 class="font-display font-semibold text-adaptive mb-3 text-sm">CSS Code</h3>
+          <div class="relative">
+            <pre class="bg-input rounded-xl p-4 text-sm font-mono text-adaptive overflow-x-auto whitespace-pre-wrap" id="gradient-css">background: linear-gradient(90deg, #E8A838, #E85538);</pre>
+            <button onclick="copyGradientCSS()" class="absolute top-3 right-3 w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center text-muted-adaptive hover:text-accent transition-colors"><i class="fa-regular fa-copy text-xs"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="lg:col-span-2 space-y-5">
+        <div class="bg-card rounded-2xl p-5">
+          <h3 class="font-display font-semibold text-adaptive mb-4 text-sm">Type & Direction</h3>
+          <div class="flex gap-2 mb-4">
+            <button onclick="setGradientType('linear')" id="btn-linear" class="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-medium transition-all">Linear</button>
+            <button onclick="setGradientType('radial')" id="btn-radial" class="flex-1 py-2.5 rounded-xl bg-input text-adaptive text-sm font-medium transition-all">Radial</button>
+          </div>
+          <div id="angle-control">
+            <div class="flex justify-between mb-2"><label class="text-sm text-adaptive">Angle</label><span class="font-mono text-sm text-accent" id="angle-val">90°</span></div>
+            <input type="range" min="0" max="360" value="90" id="gradient-angle" oninput="updateGradient()" style="background:linear-gradient(to right,#2C2C3A,#E8A838)">
+          </div>
+        </div>
+        <div class="bg-card rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-display font-semibold text-adaptive text-sm">Color Stops</h3>
+            <button onclick="addGradientStop()" class="text-xs text-accent hover:text-accent-light transition-colors font-medium"><i class="fa-solid fa-plus mr-1"></i>Add Stop</button>
+          </div>
+          <div id="gradient-stops" class="space-y-3"></div>
+        </div>
+        <div class="bg-card rounded-2xl p-5">
+          <h3 class="font-display font-semibold text-adaptive text-sm mb-3">Presets</h3>
+          <div class="grid grid-cols-3 gap-2">
+            <div onclick="applyGradientPreset('linear',90,['#ff6b6b','#feca57','#48dbfb'])" class="h-12 rounded-xl cursor-pointer hover:scale-105 transition-transform" style="background:linear-gradient(90deg,#ff6b6b,#feca57,#48dbfb)"></div>
+            <div onclick="applyGradientPreset('linear',135,['#a29bfe','#fd79a8','#fdcb6e'])" class="h-12 rounded-xl cursor-pointer hover:scale-105 transition-transform" style="background:linear-gradient(135deg,#a29bfe,#fd79a8,#fdcb6e)"></div>
+            <div onclick="applyGradientPreset('linear',45,['#00b894','#00cec9','#0984e3'])" class="h-12 rounded-xl cursor-pointer hover:scale-105 transition-transform" style="background:linear-gradient(45deg,#00b894,#00cec9,#0984e3)"></div>
+            <div onclick="applyGradientPreset('radial',0,['#E8A838','#E85538','#8838E8'])" class="h-12 rounded-xl cursor-pointer hover:scale-105 transition-transform" style="background:radial-gradient(#E8A838,#E85538,#8838E8)"></div>
+            <div onclick="applyGradientPreset('linear',180,['#2d3436','#636e72','#dfe6e9'])" class="h-12 rounded-xl cursor-pointer hover:scale-105 transition-transform" style="background:linear-gradient(180deg,#2d3436,#636e72,#dfe6e9)"></div>
+            <div onclick="applyGradientPreset('linear',90,['#e17055','#fab1a0','#ffeaa7'])" class="h-12 rounded-xl cursor-pointer hover:scale-105 transition-transform" style="background:linear-gradient(90deg,#e17055,#fab1a0,#ffeaa7)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== IMAGE PICKER PAGE ===================== -->
+<section id="page-image" class="page">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-8">
+      <h1 class="font-display text-3xl sm:text-4xl font-bold text-adaptive mb-2">Image Color Picker</h1>
+      <p class="text-muted-adaptive">Upload an image to extract its dominant colors.</p>
+    </div>
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div>
+        <div id="drop-zone" class="bg-card rounded-2xl p-10 border-2 border-dashed border-surface-border hover:border-accent/40 transition-all cursor-pointer text-center" onclick="document.getElementById('image-upload').click()" ondragover="event.preventDefault();this.classList.add('border-accent')" ondragleave="this.classList.remove('border-accent')" ondrop="handleImageDrop(event)">
+          <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+          <i class="fa-solid fa-cloud-arrow-up text-4xl text-muted-adaptive mb-4"></i>
+          <p class="text-adaptive font-medium mb-1">Drop an image here or click to upload</p>
+          <p class="text-sm text-muted-adaptive">Supports JPG, PNG, WebP</p>
+        </div>
+        <div id="image-container" class="hidden mt-4 bg-card rounded-2xl p-4">
+          <img id="uploaded-image" class="w-full rounded-xl" alt="Uploaded image">
+          <canvas id="image-canvas" class="hidden"></canvas>
+        </div>
+      </div>
+      <div>
+        <div class="bg-card rounded-2xl p-6">
+          <h3 class="font-display font-semibold text-adaptive mb-4">Extracted Colors</h3>
+          <div id="extracted-colors" class="space-y-2">
+            <p class="text-sm text-muted-adaptive">Upload an image to see extracted colors here.</p>
+          </div>
+        </div>
+        <div id="image-palette-bar" class="hidden mt-4 bg-card rounded-2xl p-4">
+          <h3 class="font-display font-semibold text-adaptive mb-3 text-sm">Palette</h3>
+          <div class="flex rounded-xl overflow-hidden shadow-lg" style="height:80px" id="image-palette-strip"></div>
+          <div class="flex gap-2 mt-3">
+            <button onclick="exportImagePalettePNG()" class="flex-1 py-2 rounded-xl bg-input text-adaptive text-sm font-medium hover:bg-surface-2 transition-colors"><i class="fa-solid fa-image mr-1.5"></i>PNG</button>
+            <button onclick="saveImagePaletteToHistory()" class="flex-1 py-2 rounded-xl bg-input text-adaptive text-sm font-medium hover:bg-surface-2 transition-colors"><i class="fa-solid fa-bookmark mr-1.5"></i>Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LEARN PAGE ===================== -->
+<section id="page-learn" class="page">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-10">
+      <h1 class="font-display text-3xl sm:text-4xl font-bold text-adaptive mb-2">Color Theory Fundamentals</h1>
+      <p class="text-muted-adaptive">Understanding color is essential for every designer. Here are the core concepts.</p>
+    </div>
+    <div class="bg-card rounded-2xl p-6 sm:p-8 mb-6">
+      <h2 class="font-display text-xl font-bold text-adaptive mb-4">The Color Wheel</h2>
+      <div class="flex flex-col sm:flex-row items-center gap-6">
+        <div class="w-48 h-48 rounded-full flex-shrink-0 shadow-xl" style="background:conic-gradient(from 0deg,#ff0000,#ff8800,#ffff00,#00ff00,#00ffff,#0000ff,#8800ff,#ff0000)"></div>
+        <div class="text-sm text-muted-adaptive leading-relaxed space-y-3">
+          <p>The color wheel organizes colors in a circle, showing relationships between them. It was first developed by Sir Isaac Newton in 1666.</p>
+          <p><strong class="text-adaptive">Primary colors</strong> (Red, Yellow, Blue) cannot be mixed from other colors. <strong class="text-adaptive">Secondary colors</strong> (Orange, Green, Purple) are created by mixing two primaries. <strong class="text-adaptive">Tertiary colors</strong> mix a primary with an adjacent secondary.</p>
+          <p>Understanding these relationships helps you create harmonious color schemes.</p>
+        </div>
+      </div>
+    </div>
+    <div class="grid sm:grid-cols-2 gap-6 mb-6">
+      <div class="bg-card rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm" style="background:linear-gradient(135deg,#ff0000,#00ff00,#0000ff)">RGB</div>
+          <h3 class="font-display font-bold text-adaptive">RGB Color Model</h3>
+        </div>
+        <p class="text-sm text-muted-adaptive leading-relaxed mb-3">Additive color model used for screens. Red, Green, and Blue light combine to create colors. All three at full intensity produce white; all at zero produce black.</p>
+        <div class="bg-input-alt rounded-xl p-3 mb-3">
+          <code class="text-xs font-mono text-accent">rgb(255, 0, 128)</code>
+          <p class="text-[11px] text-muted-adaptive mt-1">Each channel: 0–255 (integer)</p>
+        </div>
+        <div class="flex gap-1">
+          <div class="flex-1 h-8 rounded-lg" style="background:#ff0000"></div>
+          <div class="flex-1 h-8 rounded-lg" style="background:#00ff00"></div>
+          <div class="flex-1 h-8 rounded-lg" style="background:#0000ff"></div>
+        </div>
+        <p class="text-xs text-muted-adaptive mt-3"><strong class="text-adaptive">Use for:</strong> Web design, apps, digital graphics, video</p>
+      </div>
+      <div class="bg-card rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm" style="background:linear-gradient(135deg,#00ffff,#ff00ff,#ffff00)">CMYK</div>
+          <h3 class="font-display font-bold text-adaptive">CMYK Color Model</h3>
+        </div>
+        <p class="text-sm text-muted-adaptive leading-relaxed mb-3">Subtractive color model used in print. Cyan, Magenta, Yellow, and Key (Black) inks absorb light. All at full produce black (theoretically dark brown).</p>
+        <div class="bg-input-alt rounded-xl p-3 mb-3">
+          <code class="text-xs font-mono text-accent">cmyk(0%, 49%, 50%, 0%)</code>
+          <p class="text-[11px] text-muted-adaptive mt-1">Each channel: 0%–100%</p>
+        </div>
+        <div class="flex gap-1">
+          <div class="flex-1 h-8 rounded-lg" style="background:#00ffff"></div>
+          <div class="flex-1 h-8 rounded-lg" style="background:#ff00ff"></div>
+          <div class="flex-1 h-8 rounded-lg" style="background:#ffff00"></div>
+          <div class="flex-1 h-8 rounded-lg" style="background:#000000"></div>
+        </div>
+        <p class="text-xs text-muted-adaptive mt-3"><strong class="text-adaptive">Use for:</strong> Print design, packaging, brochures</p>
+      </div>
+    </div>
+    <!-- RGBA and RGB% explanation -->
+    <div class="grid sm:grid-cols-2 gap-6 mb-6">
+      <div class="bg-card rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm" style="background:linear-gradient(135deg,rgba(232,168,56,1),rgba(232,168,56,0.2))">A</div>
+          <h3 class="font-display font-bold text-adaptive">RGBA Format</h3>
+        </div>
+        <p class="text-sm text-muted-adaptive leading-relaxed mb-3">RGBA extends RGB with an Alpha channel controlling transparency. Alpha ranges from 0 (fully transparent) to 1 (fully opaque). Essential for overlays, glassmorphism, and layered designs.</p>
+        <div class="bg-input-alt rounded-xl p-3 mb-3">
+          <code class="text-xs font-mono text-accent">rgba(232, 168, 56, 0.5)</code>
+          <p class="text-[11px] text-muted-adaptive mt-1">R, G, B: 0–255 &nbsp;|&nbsp; A: 0–1</p>
+        </div>
+        <div class="relative h-12 rounded-xl overflow-hidden">
+          <div class="absolute inset-0 checker-bg"></div>
+          <div class="absolute inset-0 flex">
+            <div class="flex-1" style="background:rgba(232,168,56,1)"></div>
+            <div class="flex-1" style="background:rgba(232,168,56,0.75)"></div>
+            <div class="flex-1" style="background:rgba(232,168,56,0.5)"></div>
+            <div class="flex-1" style="background:rgba(232,168,56,0.25)"></div>
+            <div class="flex-1" style="background:rgba(232,168,56,0)"></div>
+          </div>
+        </div>
+        <div class="flex justify-between mt-1">
+          <span class="text-[10px] text-muted-adaptive">1.0</span>
+          <span class="text-[10px] text-muted-adaptive">0.75</span>
+          <span class="text-[10px] text-muted-adaptive">0.5</span>
+          <span class="text-[10px] text-muted-adaptive">0.25</span>
+          <span class="text-[10px] text-muted-adaptive">0</span>
+        </div>
+      </div>
+      <div class="bg-card rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm" style="background:linear-gradient(135deg,#E8A838,#888)">%</div>
+          <h3 class="font-display font-bold text-adaptive">RGB% Format</h3>
+        </div>
+        <p class="text-sm text-muted-adaptive leading-relaxed mb-3">RGB% expresses each channel as a percentage instead of 0–255 integers. 0% = no light, 100% = full channel intensity. Some CSS generators and SVG tools use this format natively.</p>
+        <div class="bg-input-alt rounded-xl p-3 mb-3">
+          <code class="text-xs font-mono text-accent">rgb(91%, 65.9%, 22%)</code>
+          <p class="text-[11px] text-muted-adaptive mt-1">Each channel: 0%–100%</p>
+        </div>
+        <div class="bg-input-alt rounded-xl p-3">
+          <p class="text-[11px] text-muted-adaptive mb-1"><strong class="text-adaptive">Conversion:</strong> value% = (value / 255) × 100</p>
+          <p class="text-[11px] text-muted-adaptive">Example: 232 / 255 × 100 = 91%</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-card rounded-2xl p-6 sm:p-8 mb-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-accent-dim flex items-center justify-center text-accent font-bold text-sm">HSL</div>
+        <h3 class="font-display font-bold text-adaptive">HSL Color Model</h3>
+      </div>
+      <p class="text-sm text-muted-adaptive leading-relaxed mb-4">HSL separates color into three intuitive properties, making it easier for humans to think about color:</p>
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div class="rounded-xl p-4" style="background:linear-gradient(to right,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000);background-size:100% 8px;background-repeat:no-repeat;background-position:top">
+          <h4 class="font-display font-semibold text-accent text-sm mb-1">Hue (0–360)</h4>
+          <p class="text-xs text-muted-adaptive">The pure color on the wheel. 0 is red, 120 is green, 240 is blue.</p>
+        </div>
+        <div class="rounded-xl p-4" style="background:linear-gradient(to right,#888,#E8A838);background-size:100% 8px;background-repeat:no-repeat;background-position:top">
+          <h4 class="font-display font-semibold text-accent text-sm mb-1">Saturation (0–100%)</h4>
+          <p class="text-xs text-muted-adaptive">Intensity of the color. 0% is gray, 100% is fully vivid.</p>
+        </div>
+        <div class="rounded-xl p-4" style="background:linear-gradient(to right,#000,#E8A838,#fff);background-size:100% 8px;background-repeat:no-repeat;background-position:top">
+          <h4 class="font-display font-semibold text-accent text-sm mb-1">Lightness (0–100%)</h4>
+          <p class="text-xs text-muted-adaptive">Brightness. 0% is black, 50% is the pure color, 100% is white.</p>
+        </div>
+      </div>
+    </div>
+    <!-- All Formats Comparison Table -->
+    <div class="bg-card rounded-2xl p-6 sm:p-8 mb-6">
+      <h2 class="font-display text-xl font-bold text-adaptive mb-4">All Formats at a Glance</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-surface-border">
+              <th class="text-left py-3 px-3 text-muted-adaptive font-semibold text-xs uppercase tracking-wider">Format</th>
+              <th class="text-left py-3 px-3 text-muted-adaptive font-semibold text-xs uppercase tracking-wider">Example</th>
+              <th class="text-left py-3 px-3 text-muted-adaptive font-semibold text-xs uppercase tracking-wider">Channels</th>
+              <th class="text-left py-3 px-3 text-muted-adaptive font-semibold text-xs uppercase tracking-wider">Alpha</th>
+            </tr>
+          </thead>
+          <tbody class="text-adaptive">
+            <tr class="border-b border-surface-border/50">
+              <td class="py-2.5 px-3 font-mono text-accent text-xs">HEX</td>
+              <td class="py-2.5 px-3 font-mono text-xs">#E8A838</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive">3 (R, G, B hex)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive"><i class="fa-solid fa-xmark text-red-400"></i></td>
+            </tr>
+            <tr class="border-b border-surface-border/50">
+              <td class="py-2.5 px-3 font-mono text-accent text-xs">RGB</td>
+              <td class="py-2.5 px-3 font-mono text-xs">rgb(232, 168, 56)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive">3 (0–255 each)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive"><i class="fa-solid fa-xmark text-red-400"></i></td>
+            </tr>
+            <tr class="border-b border-surface-border/50">
+              <td class="py-2.5 px-3 font-mono text-accent text-xs">RGBA</td>
+              <td class="py-2.5 px-3 font-mono text-xs">rgba(232, 168, 56, 0.8)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive">3 (0–255) + Alpha</td>
+              <td class="py-2.5 px-3 text-xs text-green-400"><i class="fa-solid fa-check"></i> 0–1</td>
+            </tr>
+            <tr class="border-b border-surface-border/50">
+              <td class="py-2.5 px-3 font-mono text-accent text-xs">RGB%</td>
+              <td class="py-2.5 px-3 font-mono text-xs">rgb(91%, 66%, 22%)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive">3 (0%–100% each)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive"><i class="fa-solid fa-xmark text-red-400"></i></td>
+            </tr>
+            <tr class="border-b border-surface-border/50">
+              <td class="py-2.5 px-3 font-mono text-accent text-xs">HSL</td>
+              <td class="py-2.5 px-3 font-mono text-xs">hsl(38, 81%, 56%)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive">H:0–360, S:0–100%, L:0–100%</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive"><i class="fa-solid fa-xmark text-red-400"></i></td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-mono text-accent text-xs">CMYK</td>
+              <td class="py-2.5 px-3 font-mono text-xs">cmyk(0%, 28%, 76%, 9%)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive">4 (0%–100% each)</td>
+              <td class="py-2.5 px-3 text-xs text-muted-adaptive"><i class="fa-solid fa-xmark text-red-400"></i></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="bg-card rounded-2xl p-6 sm:p-8 mb-6">
+      <h2 class="font-display text-xl font-bold text-adaptive mb-5">Color Harmonies</h2>
+      <div class="space-y-5">
+        <div class="flex gap-4 items-start">
+          <div class="flex gap-1 flex-shrink-0"><div class="w-10 h-10 rounded-lg" style="background:#E8A838"></div><div class="w-10 h-10 rounded-lg" style="background:#3888E8"></div></div>
+          <div><h4 class="font-display font-semibold text-adaptive text-sm">Complementary</h4><p class="text-xs text-muted-adaptive mt-0.5">Colors opposite on the wheel. Creates maximum contrast and visual tension. Great for call-to-action elements.</p></div>
+        </div>
+        <div class="flex gap-4 items-start">
+          <div class="flex gap-1 flex-shrink-0"><div class="w-10 h-10 rounded-lg" style="background:#E8C838"></div><div class="w-10 h-10 rounded-lg" style="background:#E8A838"></div><div class="w-10 h-10 rounded-lg" style="background:#E87838"></div></div>
+          <div><h4 class="font-display font-semibold text-adaptive text-sm">Analogous</h4><p class="text-xs text-muted-adaptive mt-0.5">Colors adjacent on the wheel. Creates serene, comfortable designs. Found often in nature.</p></div>
+        </div>
+        <div class="flex gap-4 items-start">
+          <div class="flex gap-1 flex-shrink-0"><div class="w-10 h-10 rounded-lg" style="background:#E8A838"></div><div class="w-10 h-10 rounded-lg" style="background:#38E8A8"></div><div class="w-10 h-10 rounded-lg" style="background:#3858E8"></div></div>
+          <div><h4 class="font-display font-semibold text-adaptive text-sm">Triadic</h4><p class="text-xs text-muted-adaptive mt-0.5">Three colors evenly spaced on the wheel. Vibrant and balanced, even with vivid colors.</p></div>
+        </div>
+        <div class="flex gap-4 items-start">
+          <div class="flex gap-1 flex-shrink-0"><div class="w-10 h-10 rounded-lg" style="background:#E8A838"></div><div class="w-10 h-10 rounded-lg" style="background:#38B8E8"></div><div class="w-10 h-10 rounded-lg" style="background:#E83888"></div></div>
+          <div><h4 class="font-display font-semibold text-adaptive text-sm">Split-Complementary</h4><p class="text-xs text-muted-adaptive mt-0.5">A base color plus the two colors adjacent to its complement. Strong contrast but less tension than complementary.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="bg-card rounded-2xl p-6 sm:p-8">
+      <h2 class="font-display text-xl font-bold text-adaptive mb-4">Color & Accessibility</h2>
+      <p class="text-sm text-muted-adaptive leading-relaxed mb-4">WCAG (Web Content Accessibility Guidelines) defines minimum contrast ratios for readable text:</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="rounded-xl p-4 bg-input">
+          <div class="flex items-center gap-2 mb-1"><span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/20 text-green-400">AA</span><span class="font-display font-semibold text-adaptive text-sm">Normal Text</span></div>
+          <p class="text-xs text-muted-adaptive">Minimum 4.5:1 contrast ratio</p>
+        </div>
+        <div class="rounded-xl p-4 bg-input">
+          <div class="flex items-center gap-2 mb-1"><span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/20 text-green-400">AA</span><span class="font-display font-semibold text-adaptive text-sm">Large Text (18px+)</span></div>
+          <p class="text-xs text-muted-adaptive">Minimum 3:1 contrast ratio</p>
+        </div>
+        <div class="rounded-xl p-4 bg-input">
+          <div class="flex items-center gap-2 mb-1"><span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-500/20 text-blue-400">AAA</span><span class="font-display font-semibold text-adaptive text-sm">Normal Text</span></div>
+          <p class="text-xs text-muted-adaptive">Minimum 7:1 contrast ratio</p>
+        </div>
+        <div class="rounded-xl p-4 bg-input">
+          <div class="flex items-center gap-2 mb-1"><span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-500/20 text-blue-400">AAA</span><span class="font-display font-semibold text-adaptive text-sm">Large Text (18px+)</span></div>
+          <p class="text-xs text-muted-adaptive">Minimum 4.5:1 contrast ratio</p>
+        </div>
+      </div>
+      <p class="text-sm text-muted-adaptive mt-4">Use the Contrast Checker in the Color Mixer to verify your colors meet these standards.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ABOUT PAGE ===================== -->
+<section id="page-about" class="page">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="text-center mb-12">
+      <div class="w-20 h-20 rounded-2xl bg-accent flex items-center justify-center mx-auto mb-6 shadow-xl shadow-accent/25">
+        <i class="fa-solid fa-droplet text-white text-3xl"></i>
+      </div>
+      <h1 class="font-display text-3xl sm:text-4xl font-bold text-adaptive mb-3">About ColorMix Pro</h1>
+      <p class="text-muted-adaptive text-lg">A professional color tool built for designers who demand precision and speed.</p>
+    </div>
+    <div class="space-y-6">
+      <div class="bg-card rounded-2xl p-6">
+        <h3 class="font-display font-semibold text-adaptive mb-3 flex items-center gap-2"><i class="fa-solid fa-bullseye text-accent"></i>Our Mission</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">ColorMix Pro was created to give designers a single, powerful tool for everything color-related. No more switching between apps for mixing, converting, palette generation, and gradient building. Everything you need is right here, fast and free.</p>
+      </div>
+      <div class="bg-card rounded-2xl p-6">
+        <h3 class="font-display font-semibold text-adaptive mb-3 flex items-center gap-2"><i class="fa-solid fa-bolt text-accent"></i>Why ColorMix Pro</h3>
+        <ul class="text-sm text-muted-adaptive leading-relaxed space-y-2">
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>Real-time color mixing with RGB, HSL sliders and alpha channel</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>Instant conversion: HEX, RGB, RGBA, RGB%, RGBA%, HSL, CMYK</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>Direct input for every format with smart CSS string parsing</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>Intelligent color harmony suggestions</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>WCAG contrast checker for accessibility compliance</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>Image color extraction with dominant color detection</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>Gradient builder with linear and radial modes</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>Export palettes as PNG images or JSON data</li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-check text-accent mt-0.5 text-xs"></i>100% client-side — your data never leaves your browser</li>
+        </ul>
+      </div>
+      <div class="bg-card rounded-2xl p-6">
+        <h3 class="font-display font-semibold text-adaptive mb-3 flex items-center gap-2"><i class="fa-solid fa-shield-halved text-accent"></i>Privacy</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">All color data is stored locally in your browser using localStorage. No data is sent to any server. No cookies, no tracking, no analytics. Your creative process stays private.</p>
+      </div>
+      <div class="bg-card rounded-2xl p-6">
+        <h3 class="font-display font-semibold text-adaptive mb-3 flex items-center gap-2"><i class="fa-solid fa-code text-accent"></i>Technical</h3>
+        <p class="text-sm text-muted-adaptive leading-relaxed">Built with vanilla HTML, CSS, and JavaScript. No frameworks, no build tools, no dependencies beyond Tailwind CSS for styling and Font Awesome for icons. Lightweight, fast-loading, and works offline once cached.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="border-t border-surface-border py-8 mt-10">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg bg-accent flex items-center justify-center"><i class="fa-solid fa-droplet text-white text-xs"></i></div>
+      <span class="font-display font-semibold text-sm text-adaptive">ColorMix Pro</span>
+    </div>
+    <p class="text-xs text-muted-adaptive">Built for designers. Free forever. No data leaves your browser.</p>
+  </div>
+</footer>
+
+<script>
+// ==================== COLOR CONVERSION UTILITIES ====================
+function hexToRgb(hex) {
+  hex = hex.replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex, 16);
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => {
+    const h = Math.max(0, Math.min(255, Math.round(x))).toString(16);
+    return h.length === 1 ? '0' + h : h;
+  }).join('');
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+function hslToRgb(h, s, l) {
+  h /= 360; s /= 100; l /= 100;
+  let r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
+function rgbToCmyk(r, g, b) {
+  if (r === 0 && g === 0 && b === 0) return { c: 0, m: 0, y: 0, k: 100 };
+  const c1 = 1 - r / 255, m1 = 1 - g / 255, y1 = 1 - b / 255;
+  const k = Math.min(c1, m1, y1);
+  return {
+    c: Math.round(((c1 - k) / (1 - k)) * 100),
+    m: Math.round(((m1 - k) / (1 - k)) * 100),
+    y: Math.round(((y1 - k) / (1 - k)) * 100),
+    k: Math.round(k * 100)
+  };
+}
+
+function getLuminance(r, g, b) {
+  const [rs, gs, bs] = [r, g, b].map(c => {
+    c /= 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+function getContrastRatio(hex1, hex2) {
+  const rgb1 = hexToRgb(hex1), rgb2 = hexToRgb(hex2);
+  const l1 = getLuminance(rgb1.r, rgb1.g, rgb1.b);
+  const l2 = getLuminance(rgb2.r, rgb2.g, rgb2.b);
+  const lighter = Math.max(l1, l2), darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function randomHex() {
+  return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+}
+
+// ==================== STATE ====================
+let currentHex = '#E8A838';
+let currentAlpha = 1;
+let colorHistory = JSON.parse(localStorage.getItem('cm_history') || '[]');
+let favorites = JSON.parse(localStorage.getItem('cm_favorites') || '[]');
+let savedPalettes = JSON.parse(localStorage.getItem('cm_palettes') || '[]');
+let paletteColors = [];
+let paletteLocked = [false, false, false, false, false];
+let gradientStops = [
+  { color: '#E8A838', position: 0 },
+  { color: '#E85538', position: 100 }
+];
+let gradientType = 'linear';
+let extractedImageColors = [];
+let mobileMenuOpen = false;
+let historyPanelOpen = false;
+let currentDirectTab = 'hex';
+
+// ==================== THEME ====================
+function toggleTheme() {
+  document.documentElement.classList.toggle('dark');
+  const isDark = document.documentElement.classList.contains('dark');
+  localStorage.setItem('cm_theme', isDark ? 'dark' : 'light');
+  document.getElementById('theme-btn').innerHTML = isDark
+    ? '<i class="fa-solid fa-sun text-sm"></i>'
+    : '<i class="fa-solid fa-moon text-sm"></i>';
+  updateSliderTracks();
+}
+(function() {
+  const saved = localStorage.getItem('cm_theme');
+  if (saved === 'light') {
+    document.documentElement.classList.remove('dark');
+    document.getElementById('theme-btn').innerHTML = '<i class="fa-solid fa-moon text-sm"></i>';
+  }
+})();
+
+// ==================== NAVIGATION ====================
+function navigateTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  setTimeout(() => {
+    document.getElementById('page-' + page).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, 50);
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  const activeLink = document.querySelector(`.nav-link[data-nav="${page}"]`);
+  if (activeLink) activeLink.classList.add('active');
+  if (page === 'mixer') { updateMixerDisplay(); updateContrast(); }
+  if (page === 'palettes') { if (paletteColors.length === 0) generatePalette(); renderFavorites(); renderSavedPalettes(); }
+  if (page === 'gradient') { renderGradientStops(); updateGradient(); }
+}
+
+// ==================== MOBILE MENU ====================
+function toggleMobileMenu() {
+  mobileMenuOpen = !mobileMenuOpen;
+  const menu = document.getElementById('mobile-menu');
+  const overlay = menu.querySelector('.mobile-overlay');
+  const panel = menu.querySelector('.mobile-panel');
+  if (mobileMenuOpen) {
+    menu.classList.remove('pointer-events-none');
+    overlay.style.opacity = '1';
+    panel.style.transform = 'translateX(0)';
+  } else {
+    overlay.style.opacity = '0';
+    panel.style.transform = 'translateX(100%)';
+    setTimeout(() => menu.classList.add('pointer-events-none'), 300);
+  }
+}
+
+// ==================== TOAST ====================
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  const colors = { success: 'bg-green-500/90', error: 'bg-red-500/90', info: 'bg-accent/90' };
+  const icons = { success: 'fa-check', error: 'fa-xmark', info: 'fa-info' };
+  toast.className = `toast ${colors[type]} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium backdrop-blur-sm`;
+  toast.innerHTML = `<i class="fa-solid ${icons[type]}"></i>${message}`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.classList.add('out'); setTimeout(() => toast.remove(), 300); }, 2500);
+}
+
+// ==================== CLIPBOARD ====================
+function copyValue(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied: ' + text));
+}
+
+// ==================== COLOR HISTORY ====================
+function addToHistory(hex) {
+  hex = hex.toUpperCase();
+  colorHistory = colorHistory.filter(c => c !== hex);
+  colorHistory.unshift(hex);
+  if (colorHistory.length > 30) colorHistory.pop();
+  localStorage.setItem('cm_history', JSON.stringify(colorHistory));
+  renderHistory();
+  showToast('Added to history');
+}
+
+function clearHistory() {
+  colorHistory = [];
+  localStorage.setItem('cm_history', '[]');
+  renderHistory();
+  showToast('History cleared', 'info');
+}
+
+function toggleHistory() {
+  historyPanelOpen = !historyPanelOpen;
+  const panel = document.getElementById('history-panel');
+  panel.style.transform = historyPanelOpen ? 'translateX(0)' : 'translateX(120%)';
+  if (historyPanelOpen) renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (colorHistory.length === 0) {
+    list.innerHTML = '<p class="text-xs text-muted-adaptive">No colors yet. Start mixing!</p>';
+    return;
+  }
+  list.innerHTML = colorHistory.map(c =>
+    `<div class="w-8 h-8 rounded-lg cursor-pointer swatch shadow-md" style="background:${c}" title="${c}" onclick="useHistoryColor('${c}')"></div>`
+  ).join('');
+}
+
+function useHistoryColor(hex) {
+  currentHex = hex;
+  if (document.getElementById('page-mixer').classList.contains('active')) {
+    updateMixerFromHexValue(hex);
+  }
+  toggleHistory();
+}
+
+// ==================== FAVORITES ====================
+function saveToFavorites(hex) {
+  hex = hex.toUpperCase();
+  if (favorites.includes(hex)) { showToast('Already saved', 'info'); return; }
+  favorites.push(hex);
+  localStorage.setItem('cm_favorites', JSON.stringify(favorites));
+  renderFavorites();
+  showToast('Saved to favorites');
+}
+
+function removeFavorite(hex) {
+  favorites = favorites.filter(c => c !== hex);
+  localStorage.setItem('cm_favorites', JSON.stringify(favorites));
+  renderFavorites();
+}
+
+function renderFavorites() {
+  const grid = document.getElementById('favorites-grid');
+  if (!grid) return;
+  if (favorites.length === 0) {
+    grid.innerHTML = '<p class="text-sm text-muted-adaptive">No saved colors yet. Mix a color and click Save!</p>';
+    return;
+  }
+  grid.innerHTML = favorites.map(c =>
+    `<div class="relative group">
+      <div class="w-12 h-12 rounded-xl cursor-pointer swatch shadow-md" style="background:${c}" title="${c}" onclick="useHistoryColor('${c}')"></div>
+      <button onclick="event.stopPropagation();removeFavorite('${c}')" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-solid fa-xmark" style="font-size:8px"></i></button>
+    </div>`
+  ).join('');
+}
+
+// ==================== DIRECT INPUT TABS ====================
+function switchDirectTab(tab) {
+  currentDirectTab = tab;
+  document.querySelectorAll('.format-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.format-tab[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.direct-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById('direct-' + tab).classList.remove('hidden');
+  // Update preview text for the active tab
+  syncDirectInputPreviews();
+}
+
+function syncDirectInputPreviews() {
+  const rgb = hexToRgb(currentHex);
+  const rPct = (rgb.r / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  const gPct = (rgb.g / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  const bPct = (rgb.b / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+  const el = (id) => document.getElementById(id);
+  if (el('direct-rgb-preview')) el('direct-rgb-preview').textContent = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+  if (el('direct-rgba-preview')) el('direct-rgba-preview').textContent = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentAlpha})`;
+  if (el('direct-pct-preview')) el('direct-pct-preview').textContent = `rgb(${rPct}%, ${gPct}%, ${bPct}%)`;
+  if (el('direct-hsl-preview')) el('direct-hsl-preview').textContent = `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+
+  // Sync input values
+  if (el('input-hex')) el('input-hex').value = currentHex.toUpperCase();
+  if (el('input-rgb-r')) el('input-rgb-r').value = rgb.r;
+  if (el('input-rgb-g')) el('input-rgb-g').value = rgb.g;
+  if (el('input-rgb-b')) el('input-rgb-b').value = rgb.b;
+  if (el('input-rgba-r')) el('input-rgba-r').value = rgb.r;
+  if (el('input-rgba-g')) el('input-rgba-g').value = rgb.g;
+  if (el('input-rgba-b')) el('input-rgba-b').value = rgb.b;
+  if (el('input-rgba-a')) el('input-rgba-a').value = currentAlpha;
+  if (el('input-pct-r')) el('input-pct-r').value = rPct;
+  if (el('input-pct-g')) el('input-pct-g').value = gPct;
+  if (el('input-pct-b')) el('input-pct-b').value = bPct;
+  if (el('input-hsl-h')) el('input-hsl-h').value = hsl.h;
+  if (el('input-hsl-s')) el('input-hsl-s').value = hsl.s;
+  if (el('input-hsl-l')) el('input-hsl-l').value = hsl.l;
+}
+
+function applyDirectHex() {
+  let val = document.getElementById('input-hex').value.trim();
+  if (!val.startsWith('#')) val = '#' + val;
+  if (/^#[0-9A-Fa-f]{6}$/.test(val) || /^#[0-9A-Fa-f]{3}$/.test(val)) {
+    updateMixerFromHexValue(val);
+    showToast('Color applied');
+  }
+}
+
+function applyDirectRGB() {
+  const r = Math.max(0, Math.min(255, parseInt(document.getElementById('input-rgb-r').value) || 0));
+  const g = Math.max(0, Math.min(255, parseInt(document.getElementById('input-rgb-g').value) || 0));
+  const b = Math.max(0, Math.min(255, parseInt(document.getElementById('input-rgb-b').value) || 0));
+  currentHex = rgbToHex(r, g, b);
+  setMixerFromRGB(r, g, b);
+  showToast('Color applied');
+}
+
+function applyDirectRGBA() {
+  const r = Math.max(0, Math.min(255, parseInt(document.getElementById('input-rgba-r').value) || 0));
+  const g = Math.max(0, Math.min(255, parseInt(document.getElementById('input-rgba-g').value) || 0));
+  const b = Math.max(0, Math.min(255, parseInt(document.getElementById('input-rgba-b').value) || 0));
+  const a = Math.max(0, Math.min(1, parseFloat(document.getElementById('input-rgba-a').value) || 0));
+  currentHex = rgbToHex(r, g, b);
+  currentAlpha = a;
+  document.getElementById('slider-a').value = Math.round(a * 100);
+  setMixerFromRGB(r, g, b);
+  showToast('Color applied');
+}
+
+function applyDirectRGBPct() {
+  const rPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('input-pct-r').value) || 0));
+  const gPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('input-pct-g').value) || 0));
+  const bPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('input-pct-b').value) || 0));
+  const r = Math.round(rPct / 100 * 255);
+  const g = Math.round(gPct / 100 * 255);
+  const b = Math.round(bPct / 100 * 255);
+  currentHex = rgbToHex(r, g, b);
+  setMixerFromRGB(r, g, b);
+  showToast('Color applied');
+}
+
+function applyDirectHSL() {
+  const h = Math.max(0, Math.min(360, parseInt(document.getElementById('input-hsl-h').value) || 0));
+  const s = Math.max(0, Math.min(100, parseInt(document.getElementById('input-hsl-s').value) || 0));
+  const l = Math.max(0, Math.min(100, parseInt(document.getElementById('input-hsl-l').value) || 0));
+  const rgb = hslToRgb(h, s, l);
+  currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
+  setMixerFromRGB(rgb.r, rgb.g, rgb.b);
+  showToast('Color applied');
+}
+
+function applyDirectRaw() {
+  const raw = document.getElementById('input-raw').value.trim();
+  if (!raw) return;
+  // Try parsing with a temporary element
+  const temp = document.createElement('div');
+  temp.style.color = raw;
+  if (temp.style.color === '') {
+    showToast('Could not parse color string', 'error');
+    return;
+  }
+  // Extract the computed color
+  const computed = getComputedStyle(temp).color;
+  const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (match) {
+    const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]);
+    currentHex = rgbToHex(r, g, b);
+    // Check if RGBA was used
+    const alphaMatch = computed.match(/rgba?\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)/);
+    if (alphaMatch) currentAlpha = parseFloat(alphaMatch[1]);
+    setMixerFromRGB(r, g, b);
+    showToast('Parsed: ' + computed);
+    document.getElementById('input-raw').value = '';
+  } else {
+    showToast('Could not parse color string', 'error');
+  }
+}
+
+// ==================== MIXER ====================
+function updateMixerFromRGB() {
+  const r = +document.getElementById('slider-r').value;
+  const g = +document.getElementById('slider-g').value;
+  const b = +document.getElementById('slider-b').value;
+  currentHex = rgbToHex(r, g, b);
+  updateMixerDisplay();
+}
+
+function updateMixerFromHSL() {
+  const h = +document.getElementById('slider-h').value;
+  const s = +document.getElementById('slider-s').value;
+  const l = +document.getElementById('slider-l').value;
+  const rgb = hslToRgb(h, s, l);
+  currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
+  updateMixerDisplay();
+}
+
+function updateAlpha() {
+  currentAlpha = +document.getElementById('slider-a').value / 100;
+  document.getElementById('a-val').textContent = currentAlpha.toFixed(2);
+  const rgb = hexToRgb(currentHex);
+  document.getElementById('mixer-preview').style.background = `rgba(${rgb.r},${rgb.g},${rgb.b},${currentAlpha})`;
+  // Update the alpha slider gradient
+  document.getElementById('slider-a').style.background = `linear-gradient(to right, rgba(${rgb.r},${rgb.g},${rgb.b},0), rgba(${rgb.r},${rgb.g},${rgb.b},1))`;
+  // Update RGBA displays
+  document.getElementById('mixer-rgba-fn').textContent = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentAlpha})`;
+  const rPct = (rgb.r / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  const gPct = (rgb.g / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  const bPct = (rgb.b / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  document.getElementById('mixer-rgba-pct').textContent = `rgba(${rPct}%, ${gPct}%, ${bPct}%, ${Math.round(currentAlpha * 100)}%)`;
+  syncDirectInputPreviews();
+}
+
+function setMixerFromRGB(r, g, b) {
+  document.getElementById('slider-r').value = r;
+  document.getElementById('slider-g').value = g;
+  document.getElementById('slider-b').value = b;
+  updateMixerDisplay();
+}
+
+function updateMixerFromHexValue(hex) {
+  currentHex = hex;
+  const rgb = hexToRgb(hex);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  document.getElementById('slider-r').value = rgb.r;
+  document.getElementById('slider-g').value = rgb.g;
+  document.getElementById('slider-b').value = rgb.b;
+  document.getElementById('slider-h').value = hsl.h;
+  document.getElementById('slider-s').value = hsl.s;
+  document.getElementById('slider-l').value = hsl.l;
+  updateMixerDisplay();
+}
+
+function updateMixerFromPicker() {
+  updateMixerFromHexValue(document.getElementById('native-picker').value);
+}
+
+function updateMixerDisplay() {
+  const rgb = hexToRgb(currentHex);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b);
+  const hex = currentHex.toUpperCase();
+  const rPct = (rgb.r / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  const gPct = (rgb.g / 255 * 100).toFixed(1).replace(/\.0$/, '');
+  const bPct = (rgb.b / 255 * 100).toFixed(1).replace(/\.0$/, '');
+
+  document.getElementById('mixer-preview').style.background = `rgba(${rgb.r},${rgb.g},${rgb.b},${currentAlpha})`;
+  document.getElementById('mixer-hex').textContent = hex;
+  document.getElementById('mixer-rgb-fn').textContent = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+  document.getElementById('mixer-rgba-fn').textContent = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentAlpha})`;
+  document.getElementById('mixer-rgb-pct').textContent = `rgb(${rPct}%, ${gPct}%, ${bPct}%)`;
+  document.getElementById('mixer-rgba-pct').textContent = `rgba(${rPct}%, ${gPct}%, ${bPct}%, ${Math.round(currentAlpha * 100)}%)`;
+  document.getElementById('mixer-hsl').textContent = `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+  document.getElementById('mixer-cmyk').textContent = `cmyk(${cmyk.c}%, ${cmyk.m}%, ${cmyk.y}%, ${cmyk.k}%)`;
+
+  document.getElementById('r-val').textContent = rgb.r;
+  document.getElementById('g-val').textContent = rgb.g;
+  document.getElementById('b-val').textContent = rgb.b;
+  document.getElementById('h-val').textContent = hsl.h + '°';
+  document.getElementById('s-val').textContent = hsl.s + '%';
+  document.getElementById('l-val').textContent = hsl.l + '%';
+  document.getElementById('a-val').textContent = currentAlpha.toFixed(2);
+
+  document.getElementById('hex-input').value = hex;
+  document.getElementById('native-picker').value = currentHex;
+  document.getElementById('contrast-bg').value = currentHex;
+  document.getElementById('hero-preview').style.background = hex;
+  document.getElementById('hero-hex').textContent = hex;
+
+  // Update alpha slider gradient
+  document.getElementById('slider-a').style.background = `linear-gradient(to right, rgba(${rgb.r},${rgb.g},${rgb.b},0), rgba(${rgb.r},${rgb.g},${rgb.b},1))`;
+
+  updateSliderTracks();
+  updateHarmonies(hsl.h, hsl.s, hsl.l);
+  updateContrast();
+  syncDirectInputPreviews();
+}
+
+function updateSliderTracks() {
+  const r = +document.getElementById('slider-r').value;
+  const g = +document.getElementById('slider-g').value;
+  const b = +document.getElementById('slider-b').value;
+  const h = +document.getElementById('slider-h').value;
+  const s = +document.getElementById('slider-s').value;
+  const l = +document.getElementById('slider-l').value;
+
+  document.getElementById('slider-r').style.background = `linear-gradient(to right, rgb(0,${g},${b}), rgb(255,${g},${b}))`;
+  document.getElementById('slider-g').style.background = `linear-gradient(to right, rgb(${r},0,${b}), rgb(${r},255,${b}))`;
+  document.getElementById('slider-b').style.background = `linear-gradient(to right, rgb(${r},${g},0), rgb(${r},${g},255))`;
+
+  const hslColor = (hh, ss, ll) => { const c = hslToRgb(hh, ss, ll); return `rgb(${c.r},${c.g},${c.b})`; };
+  document.getElementById('slider-s').style.background = `linear-gradient(to right, ${hslColor(h, 0, l)}, ${hslColor(h, 100, l)})`;
+  document.getElementById('slider-l').style.background = `linear-gradient(to right, ${hslColor(h, s, 0)}, ${hslColor(h, s, 50)}, ${hslColor(h, s, 100)})`;
+}
+
+// ==================== HARMONIES ====================
+function updateHarmonies(h, s, l) {
+  const makeSwatch = (hue) => {
+    const rgb = hslToRgb((hue + 360) % 360, s, l);
+    const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+    return `<div class="flex-1 h-12 rounded-lg cursor-pointer swatch shadow-md relative group" style="background:${hex}" onclick="copyToClipboard('${hex.toUpperCase()}')" title="${hex.toUpperCase()}">
+      <span class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity px-1 py-0.5 rounded" style="color:#fff;background:rgba(0,0,0,0.6)">${hex.toUpperCase()}</span>
+    </div>`;
+  };
+  document.getElementById('harm-complementary').innerHTML = makeSwatch(h) + makeSwatch(h + 180);
+  document.getElementById('harm-analogous').innerHTML = makeSwatch(h - 30) + makeSwatch(h) + makeSwatch(h + 30);
+  document.getElementById('harm-triadic').innerHTML = makeSwatch(h) + makeSwatch(h + 120) + makeSwatch(h + 240);
+  document.getElementById('harm-split').innerHTML = makeSwatch(h) + makeSwatch(h + 150) + makeSwatch(h + 210);
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('Copied: ' + text));
+}
+
+// ==================== CONTRAST CHECKER ====================
+function updateContrast() {
+  const fg = document.getElementById('contrast-fg').value;
+  const bg = document.getElementById('contrast-bg').value;
+  const ratio = getContrastRatio(fg, bg);
+  const ratioStr = ratio.toFixed(1) + ':1';
+  document.getElementById('contrast-ratio').textContent = ratioStr;
+  document.getElementById('contrast-preview-box').style.background = bg;
+  document.getElementById('contrast-preview-text').style.color = fg;
+  const badges = document.getElementById('contrast-badges');
+  let html = '';
+  if (ratio >= 4.5) html += '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400">AA</span>';
+  else html += '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">AA</span>';
+  if (ratio >= 3) html += '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400">AA-L</span>';
+  else html += '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">AA-L</span>';
+  if (ratio >= 7) html += '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">AAA</span>';
+  else html += '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">AAA</span>';
+  badges.innerHTML = html;
+}
+
+// ==================== PALETTE GENERATOR ====================
+function generatePalette() {
+  paletteColors = paletteColors.map((c, i) => paletteLocked[i] ? c : randomHex());
+  renderPalette();
+}
+
+function renderPalette() {
+  const container = document.getElementById('main-palette');
+  container.innerHTML = paletteColors.map((c, i) => {
+    const textColor = getLuminance(...Object.values(hexToRgb(c))) > 0.5 ? '#000' : '#fff';
+    return `<div class="flex-1 flex flex-col items-center justify-center cursor-pointer relative group transition-all" style="background:${c}" onclick="copyToClipboard('${c.toUpperCase()}')">
+      <i class="fa-solid ${paletteLocked[i] ? 'fa-lock' : 'fa-lock-open'} text-sm mb-2 opacity-60" style="color:${textColor}"></i>
+      <span class="font-mono text-sm font-medium" style="color:${textColor}">${c.toUpperCase()}</span>
+      <button onclick="event.stopPropagation();togglePaletteLock(${i})" class="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style="background:${textColor === '#fff' ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};color:${textColor}">
+        <i class="fa-solid ${paletteLocked[i] ? 'fa-lock' : 'fa-lock-open'}" style="font-size:10px"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function togglePaletteLock(i) { paletteLocked[i] = !paletteLocked[i]; renderPalette(); }
+
+function saveCurrentPalette() {
+  if (paletteColors.length === 0) return;
+  savedPalettes.push({ colors: [...paletteColors], date: new Date().toLocaleDateString() });
+  localStorage.setItem('cm_palettes', JSON.stringify(savedPalettes));
+  renderSavedPalettes();
+  showToast('Palette saved');
+}
+
+function renderSavedPalettes() {
+  const container = document.getElementById('saved-palettes');
+  if (savedPalettes.length === 0) {
+    container.innerHTML = '<p class="text-sm text-muted-adaptive">Generate a palette and save it to see it here.</p>';
+    return;
+  }
+  container.innerHTML = savedPalettes.map((p, idx) =>
+    `<div class="bg-card rounded-xl p-3 group relative">
+      <div class="flex rounded-lg overflow-hidden shadow" style="height:60px">${p.colors.map(c => `<div class="flex-1" style="background:${c}"></div>`).join('')}</div>
+      <div class="flex items-center justify-between mt-2">
+        <span class="text-xs text-muted-adaptive">${p.date}</span>
+        <button onclick="removeSavedPalette(${idx})" class="text-xs text-muted-adaptive hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function removeSavedPalette(idx) {
+  savedPalettes.splice(idx, 1);
+  localStorage.setItem('cm_palettes', JSON.stringify(savedPalettes));
+  renderSavedPalettes();
+  showToast('Palette removed', 'info');
+}
+
+function exportPalettePNG() {
+  if (paletteColors.length === 0) return;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const sw = 200, sh = 200;
+  canvas.width = paletteColors.length * sw;
+  canvas.height = sh + 40;
+  paletteColors.forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(i * sw, 0, sw, sh);
+    ctx.fillStyle = getLuminance(...Object.values(hexToRgb(c))) > 0.5 ? '#000' : '#fff';
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(c.toUpperCase(), i * sw + sw / 2, sh + 28);
+  });
+  const link = document.createElement('a');
+  link.download = 'colormix-palette.png';
+  link.href = canvas.toDataURL();
+  link.click();
+  showToast('Palette exported as PNG');
+}
+
+function exportPaletteJSON() {
+  if (paletteColors.length === 0) return;
+  const json = JSON.stringify({ palette: paletteColors.map(c => c.toUpperCase()) }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.download = 'colormix-palette.json';
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  showToast('Palette exported as JSON');
+}
+
+paletteColors = Array.from({ length: 5 }, () => randomHex());
+
+// ==================== GRADIENT BUILDER ====================
+function setGradientType(type) {
+  gradientType = type;
+  document.getElementById('btn-linear').className = `flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${type === 'linear' ? 'bg-accent text-white' : 'bg-input text-adaptive'}`;
+  document.getElementById('btn-radial').className = `flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${type === 'radial' ? 'bg-accent text-white' : 'bg-input text-adaptive'}`;
+  document.getElementById('angle-control').style.display = type === 'linear' ? 'block' : 'none';
+  updateGradient();
+}
+
+function addGradientStop() {
+  if (gradientStops.length >= 8) { showToast('Maximum 8 stops', 'info'); return; }
+  gradientStops.push({ color: randomHex(), position: Math.round(Math.random() * 100) });
+  gradientStops.sort((a, b) => a.position - b.position);
+  renderGradientStops();
+  updateGradient();
+}
+
+function removeGradientStop(idx) {
+  if (gradientStops.length <= 2) { showToast('Minimum 2 stops required', 'info'); return; }
+  gradientStops.splice(idx, 1);
+  renderGradientStops();
+  updateGradient();
+}
+
+function renderGradientStops() {
+  const container = document.getElementById('gradient-stops');
+  container.innerHTML = gradientStops.map((stop, i) =>
+    `<div class="flex items-center gap-3 bg-input rounded-xl p-3">
+      <input type="color" value="${stop.color}" onchange="gradientStops[${i}].color=this.value;updateGradient()" class="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent flex-shrink-0">
+      <div class="flex-1">
+        <div class="flex justify-between mb-1"><span class="text-xs text-muted-adaptive">Position</span><span class="text-xs font-mono text-accent">${stop.position}%</span></div>
+        <input type="range" min="0" max="100" value="${stop.position}" oninput="gradientStops[${i}].position=+this.value;updateGradient();this.previousElementSibling.lastElementChild.textContent=this.value+'%'" style="background:linear-gradient(to right,#2C2C3A,#E8A838);height:6px">
+      </div>
+      <button onclick="removeGradientStop(${i})" class="w-8 h-8 rounded-lg flex items-center justify-center text-muted-adaptive hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>
+    </div>`
+  ).join('');
+}
+
+function updateGradient() {
+  const angle = +document.getElementById('gradient-angle').value;
+  document.getElementById('angle-val').textContent = angle + '°';
+  const stops = gradientStops.map(s => `${s.color} ${s.position}%`).join(', ');
+  let css = gradientType === 'linear' ? `linear-gradient(${angle}deg, ${stops})` : `radial-gradient(circle, ${stops})`;
+  document.getElementById('gradient-preview').style.background = css;
+  document.getElementById('gradient-css').textContent = `background: ${css};`;
+}
+
+function copyGradientCSS() {
+  navigator.clipboard.writeText(document.getElementById('gradient-css').textContent).then(() => showToast('CSS copied'));
+}
+
+function applyGradientPreset(type, angle, colors) {
+  gradientType = type;
+  setGradientType(type);
+  if (type === 'linear') document.getElementById('gradient-angle').value = angle;
+  gradientStops = colors.map((c, i) => ({ color: c, position: Math.round(i / (colors.length - 1) * 100) }));
+  renderGradientStops();
+  updateGradient();
+}
+
+// ==================== IMAGE PICKER ====================
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (file) processImage(file);
+}
+
+function handleImageDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('border-accent');
+  const file = event.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processImage(file);
+}
+
+function processImage(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = document.getElementById('uploaded-image');
+    img.src = e.target.result;
+    img.onload = function() {
+      document.getElementById('drop-zone').classList.add('hidden');
+      document.getElementById('image-container').classList.remove('hidden');
+      extractColorsFromImage(img);
+    };
+  };
+  reader.readAsDataURL(file);
+}
+
+function extractColorsFromImage(img) {
+  const canvas = document.getElementById('image-canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const scale = Math.min(1, 150 / Math.max(img.width, img.height));
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(img.height * scale);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  const colorMap = {};
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] < 128) continue;
+    const r = Math.round(pixels[i] / 24) * 24;
+    const g = Math.round(pixels[i+1] / 24) * 24;
+    const b = Math.round(pixels[i+2] / 24) * 24;
+    const key = `${Math.min(255,r)},${Math.min(255,g)},${Math.min(255,b)}`;
+    colorMap[key] = (colorMap[key] || 0) + 1;
+  }
+  const sorted = Object.entries(colorMap).sort((a, b) => b[1] - a[1]);
+  const result = [];
+  for (const [key] of sorted) {
+    const [r, g, b] = key.split(',').map(Number);
+    const hex = rgbToHex(r, g, b);
+    const isSimilar = result.some(c => {
+      const cr = hexToRgb(c.hex);
+      return Math.sqrt((cr.r-r)**2 + (cr.g-g)**2 + (cr.b-b)**2) < 60;
+    });
+    if (!isSimilar && result.length < 8) result.push({ r, g, b, hex });
+    if (result.length >= 8) break;
+  }
+  extractedImageColors = result;
+  renderExtractedColors();
+}
+
+function renderExtractedColors() {
+  const container = document.getElementById('extracted-colors');
+  container.innerHTML = extractedImageColors.map(c => {
+    const textColor = getLuminance(c.r, c.g, c.b) > 0.5 ? '#000' : '#fff';
+    return `<div class="flex items-center gap-3 p-3 rounded-xl bg-input cursor-pointer hover:bg-surface-2 transition-colors" onclick="copyToClipboard('${c.hex.toUpperCase()}')">
+      <div class="w-12 h-12 rounded-xl shadow-md flex-shrink-0" style="background:${c.hex}"></div>
+      <div class="flex-1 min-w-0">
+        <span class="font-mono text-sm text-adaptive">${c.hex.toUpperCase()}</span>
+        <span class="text-xs text-muted-adaptive ml-2">RGB(${c.r}, ${c.g}, ${c.b})</span>
+      </div>
+      <i class="fa-regular fa-copy text-muted-adaptive text-sm"></i>
+    </div>`;
+  }).join('');
+  const bar = document.getElementById('image-palette-strip');
+  bar.innerHTML = extractedImageColors.map(c => `<div class="flex-1" style="background:${c.hex}"></div>`).join('');
+  document.getElementById('image-palette-bar').classList.remove('hidden');
+}
+
+function exportImagePalettePNG() {
+  if (extractedImageColors.length === 0) return;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const sw = 160, sh = 160;
+  canvas.width = extractedImageColors.length * sw;
+  canvas.height = sh + 40;
+  extractedImageColors.forEach((c, i) => {
+    ctx.fillStyle = c.hex;
+    ctx.fillRect(i * sw, 0, sw, sh);
+    const textColor = getLuminance(c.r, c.g, c.b) > 0.5 ? '#000' : '#fff';
+    ctx.fillStyle = textColor;
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(c.hex.toUpperCase(), i * sw + sw / 2, sh + 26);
+  });
+  const link = document.createElement('a');
+  link.download = 'image-palette.png';
+  link.href = canvas.toDataURL();
+  link.click();
+  showToast('Image palette exported');
+}
+
+function saveImagePaletteToHistory() {
+  if (extractedImageColors.length === 0) return;
+  savedPalettes.push({ colors: extractedImageColors.map(c => c.hex), date: new Date().toLocaleDateString() });
+  localStorage.setItem('cm_palettes', JSON.stringify(savedPalettes));
+  showToast('Image palette saved');
+}
+
+// ==================== HERO ANIMATION ====================
+const heroColors = ['#E8A838', '#E85538', '#38E8A8', '#3858E8', '#E838A8', '#A8E838'];
+let heroColorIdx = 0;
+setInterval(() => {
+  heroColorIdx = (heroColorIdx + 1) % heroColors.length;
+  const el = document.getElementById('hero-preview');
+  const txt = document.getElementById('hero-hex');
+  if (el && txt) {
+    el.style.background = heroColors[heroColorIdx];
+    txt.textContent = heroColors[heroColorIdx];
+  }
+}, 3000);
+
+// ==================== KEYBOARD SHORTCUTS ====================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (mobileMenuOpen) toggleMobileMenu();
+    if (historyPanelOpen) toggleHistory();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (historyPanelOpen && !e.target.closest('#history-panel') && !e.target.closest('[onclick*="toggleHistory"]')) {
+    toggleHistory();
+  }
+});
+
+// ==================== INIT ====================
+updateMixerDisplay();
+renderHistory();
+</script>
+</body>
+</html>
